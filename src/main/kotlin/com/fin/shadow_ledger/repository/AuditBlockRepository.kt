@@ -1,4 +1,4 @@
-package com.fin.shadow_ledger.repository // <--- Ensure this matches
+package com.fin.shadow_ledger.repository  
 
 import com.fin.shadow_ledger.model.AuditBlock
 import org.springframework.data.jpa.repository.JpaRepository
