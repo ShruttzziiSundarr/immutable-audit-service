@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: shadow-ledger
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/shadow_ledger_db
+    username: shadow_user
+    password: shadow_password
+    driver-class-name: org.postgresql.Driver
+
+  # JPA Settings (Auto-create tables)
+  jpa:
+    hibernate:
+      ddl-auto: update  # This automatically creates the tables (AuditBlock, etc.)
+    show-sql: true      # This lets us see the SQL in the terminal (cool for debugging)
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # Redis Configuration
+  data:
+    redis:
+      host: localhost
+      port: 6379

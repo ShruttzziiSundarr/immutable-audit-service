@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # 1. The Main Database (PostgreSQL)
+  postgres:
+    image: postgres:15-alpine
+    container_name: shadow-ledger-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: shadow_user
+      POSTGRES_PASSWORD: shadow_password
+      POSTGRES_DB: shadow_ledger_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. The Cache (Redis) - We added this dependency earlier
+  redis:
+    image: redis:alpine
+    container_name: shadow-ledger-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
