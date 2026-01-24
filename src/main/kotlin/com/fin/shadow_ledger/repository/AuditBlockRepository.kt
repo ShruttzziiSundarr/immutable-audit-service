@@ -8,4 +8,6 @@ import java.util.UUID
 @Repository
 interface AuditBlockRepository : JpaRepository<AuditBlock, UUID> {
     fun findFirstByOrderByBlockHeightDesc(): AuditBlock?
+    // Add this inside the interface
+    fun findTop10ByOrderByBlockHeightDesc(): List<AuditBlock>
 }

@@ -25,4 +25,11 @@ class AuditController(private val auditService: AuditService) {
             ResponseEntity.status(404).body("❌ Not Found: Transaction $id is not yet audited.")
         }
     }
+    @GetMapping("/blocks")
+    fun getRecentBlocks(): ResponseEntity<List<com.fin.shadow_ledger.model.AuditBlock>> {
+        // We are calling the repository directly here for simplicity in the demo
+        // In a strict app, we would wrap this in the Service, but this is fine for now.
+        val blocks = auditService.getRecentBlocks() 
+        return ResponseEntity.ok(blocks)
+    }
 }

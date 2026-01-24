@@ -1,6 +1,8 @@
 package com.fin.shadow_ledger.service
 
 import com.fin.shadow_ledger.dto.TransactionEvent
+import com.fin.shadow_ledger.model.AuditBlock
+import com.fin.shadow_ledger.repository.AuditBlockRepository
 import com.fin.shadow_ledger.service.strategy.AuditStrategy
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -8,7 +10,10 @@ import org.springframework.stereotype.Service
 @Service
 class AuditService(
     private val strategies: Map<String, AuditStrategy>,
-    @Value("\${audit.mode}") private val activeMode: String
+    @Value("\${audit.mode}") private val activeMode: String,
+    
+    // NEW: We injected the Repository here so we can fetch history
+    private val blockRepository: AuditBlockRepository
 ) {
 
     fun processTransaction(event: TransactionEvent) {
@@ -23,5 +28,10 @@ class AuditService(
             ?: throw RuntimeException("Invalid Audit Mode: $activeMode")
         
         return strategy.verify(id)
+    }
+
+    // NEW: The Controller calls this to get the data for the Dashboard
+    fun getRecentBlocks(): List<AuditBlock> {
+        return blockRepository.findTop10ByOrderByBlockHeightDesc()
     }
 }
