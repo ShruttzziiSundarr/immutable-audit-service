@@ -17,6 +17,12 @@ class AuditController(private val auditService: AuditService) {
 
     @GetMapping("/verify/{id}")
     fun verifyTransaction(@PathVariable id: Long): ResponseEntity<String> {
-        return ResponseEntity.ok("Verification logic coming soon for ID: $id")
+        val isValid = auditService.verifyTransaction(id)
+        
+        return if (isValid) {
+            ResponseEntity.ok("✅ Verified: Transaction $id is immutable and secured on the ledger.")
+        } else {
+            ResponseEntity.status(404).body("❌ Not Found: Transaction $id is not yet audited.")
+        }
     }
 }

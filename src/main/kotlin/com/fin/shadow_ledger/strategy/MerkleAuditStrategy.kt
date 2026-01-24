@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.Collections
 
-@Service("MERKLE_STRATEGY") // <--- This name is important for the config switch!
+@Service("MERKLE_STRATEGY")
 class MerkleAuditStrategy(
     private val blockRepository: AuditBlockRepository,
     private val witnessRepository: TransactionWitnessRepository
@@ -29,21 +29,33 @@ class MerkleAuditStrategy(
         }
     }
 
+    @Transactional(readOnly = true)
+    override fun verify(transactionId: Long): Boolean {
+        // Look for the receipt using our finder method
+        val witness = witnessRepository.findByTransactionId(transactionId)
+
+        return if (witness != null) {
+            println("[Merkle Strategy] Verified! Transaction $transactionId is in Block ${witness.auditBlock.blockHeight}")
+            println("[Merkle Strategy] Merkle Root: ${witness.auditBlock.merkleRoot}")
+            true
+        } else {
+            println("[Merkle Strategy] Failed! Transaction $transactionId not found.")
+            false
+        }
+    }
+
     private fun sealBlock() {
         println("[Merkle Strategy] Sealing Batch...")
         val currentBatch = transactionBuffer.toList()
         transactionBuffer.clear()
 
-        // 1. Build Tree
         val hashes = currentBatch.map { it.toHash() }
         val merkleTree = MerkleTree(hashes)
 
-        // 2. Link to Previous Block
         val lastBlock = blockRepository.findFirstByOrderByBlockHeightDesc()
         val prevHash = lastBlock?.merkleRoot ?: "00000000000000000000000000000000"
         val newHeight = (lastBlock?.blockHeight ?: 0L) + 1
 
-        // 3. Save Block
         val newBlock = AuditBlock(
             merkleRoot = merkleTree.root,
             previousBlockHash = prevHash,
@@ -52,7 +64,6 @@ class MerkleAuditStrategy(
         )
         val savedBlock = blockRepository.save(newBlock)
 
-        // 4. Save Receipts
         val witnesses = currentBatch.mapIndexed { index, tx ->
             TransactionWitness(
                 transactionId = tx.id,
