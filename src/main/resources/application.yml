@@ -23,3 +23,5 @@ spring:
     redis:
       host: localhost
       port: 6379
+audit:
+  mode: MERKLE_STRATEGY
