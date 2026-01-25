@@ -15,7 +15,6 @@ class AuditService(
     private val auditBlockRepository: AuditBlockRepository,
     private val witnessRepository: TransactionWitnessRepository,
 
-    // Inject ALL 5 Strategies
     @Qualifier("simpleAuditStrategy") private val simpleStrategy: AuditStrategy,
     @Qualifier("merkleAuditStrategy") private val merkleStrategy: AuditStrategy,
     @Qualifier("tsaAuditStrategy") private val tsaStrategy: AuditStrategy,
@@ -24,8 +23,7 @@ class AuditService(
 ) {
 
     fun processTransaction(event: TransactionEvent, mode: String = "MERKLE") {
-        
-        // 1. Select the Cryptographic Engine
+
         val strategy = when (mode) {
             "TSA" -> tsaStrategy
             "ZKP" -> zkpStrategy
@@ -34,38 +32,31 @@ class AuditService(
             else -> merkleStrategy
         }
 
-        println("⚙️ EXECUTING STRATEGY: [$mode] for Transaction ID: ${event.id}")
+        println("EXECUTING STRATEGY: [$mode] for ID: ${event.id}")
 
-        // 2. Execute the Strategy Logic
         val blockData = strategy.processTransaction(event)
 
-        // 3. Seal to Immutable Ledger (Database)
-        // FIX: Removed .toString() from timestamp because Entity expects Instant
-        // FIX: Ensure 'blockHeight' is Long
         val block = AuditBlock(
-            merkleRoot = blockData.witnessToken, 
-            previousBlockHash = "HASH_${event.id.hashCode()}", 
+            merkleRoot = blockData.witnessToken,
+            previousBlockHash = "HASH_${event.id.hashCode()}",
             transactionCount = 1,
             blockHeight = auditBlockRepository.count() + 1,
-            timestamp = Instant.now() 
+            timestamp = Instant.now()
         )
         val savedBlock = auditBlockRepository.save(block)
 
-        // 4. Issue the Receipt (Witness Record)
-        // FIX: Changed parameter name from 'block' to 'auditBlock' (Standard JPA naming)
         val witness = TransactionWitness(
             transactionId = event.id.toString(),
             transactionHash = blockData.witnessToken,
-            merkleProof = "Secured via $mode Strategy",
-            auditBlock = savedBlock 
+            merkleProof = "Secured via $mode",
+            auditBlock = savedBlock
         )
         witnessRepository.save(witness)
-        
-        println("✅ BLOCK SEALED: Height ${savedBlock.blockHeight} | Proof: ${witness.transactionHash}")
+
+        println("SEALED: Height ${savedBlock.blockHeight}")
     }
 
-    // --- READ-ONLY METHODS ---
     fun getRecentBlocks(): List<AuditBlock> = auditBlockRepository.findAll()
-    
+
     fun verifyTransaction(id: Long): Boolean = witnessRepository.existsByTransactionId(id.toString())
 }

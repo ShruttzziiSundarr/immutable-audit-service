@@ -12,7 +12,7 @@ spring:
   # JPA Settings (Auto-create tables)
   jpa:
     hibernate:
-      ddl-auto: update  # This automatically creates the tables (AuditBlock, etc.)
+      ddl-auto: update  # Auto-update tables (schema fixed)
     show-sql: true      # This lets us see the SQL in the terminal (cool for debugging)
     properties:
       hibernate:
