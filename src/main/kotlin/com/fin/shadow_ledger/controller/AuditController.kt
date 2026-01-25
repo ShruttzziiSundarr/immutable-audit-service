@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.client.RestTemplate
 import java.time.Instant
 
-// Helper class to map the incoming JSON from pay.html
+// Data class to map incoming JSON from pay.html
 data class PaymentRequest(
     val id: Long,
     val fromAccount: String,
@@ -25,7 +25,11 @@ class AuditController(private val auditService: AuditService) {
     fun processPayment(@RequestBody request: PaymentRequest): ResponseEntity<Map<String, Any>> {
         println("💰 Payment Request: ₹${request.amount} | ${request.fromAccount} -> ${request.toAccount}")
 
-        // 1. CALL THE PYTHON TRIDENT AI BRAIN
+        var decision = "APPROVED"
+        var reasons = listOf("Safe")
+        var aiScore = 0.0
+
+        // --- STEP 1: ASK THE AI SENTINEL (Python) ---
         try {
             val restTemplate = RestTemplate()
             
@@ -37,18 +41,27 @@ class AuditController(private val auditService: AuditService) {
                 "lon" to request.lon
             )
 
+            // Call Python Brain
             val aiResponse = restTemplate.postForObject(
                 "http://localhost:5000/analyze", 
                 aiPayload, 
                 Map::class.java
             )
 
-            val decision = aiResponse?.get("decision") as String
-            val reasons = aiResponse?.get("reasons") as List<String>
-            val score = aiResponse?.get("score")
+            decision = aiResponse?.get("decision") as String
+            reasons = aiResponse?.get("reasons") as List<String>
+            
+            // Handle Number conversion safely (JSON can return Integer or Double)
+            val scoreRaw = aiResponse?.get("score")
+            aiScore = when (scoreRaw) {
+                is Double -> scoreRaw
+                is Int -> scoreRaw.toDouble()
+                else -> 0.0
+            }
 
-            println("🤖 AI VERDICT: $decision (Score: $score) | Reasons: $reasons")
+            println("🤖 AI VERDICT: $decision (Score: $aiScore) | Reasons: $reasons")
 
+            // BLOCK IF AI SAYS SO
             if (decision == "BLOCKED") {
                 return ResponseEntity.status(403).body(mapOf(
                     "status" to "blocked",
@@ -58,51 +71,72 @@ class AuditController(private val auditService: AuditService) {
             }
 
         } catch (e: Exception) {
-            println("⚠️ WARNING: AI Engine is Offline. Proceeding without check. Error: ${e.message}")
+            println("⚠️ WARNING: AI Engine Offline. Proceeding with default checks. (${e.message})")
         }
 
-        // 2. IF SAFE (OR AI OFFLINE), SEAL IT ON THE LEDGER
+        // --- STEP 2: SMART STRATEGY SELECTION MATRIX ---
+        
+        var strategyMode = "MERKLE" // Default Strategy
+
+        // RULE 1: PRIVACY (ZKP)
+        // Demo Logic: If amount is exactly 777, use ZKP
+        if (request.amount == 777.0) {
+            strategyMode = "ZKP" 
+        }
+        // RULE 2: SECURITY (Multi-Sig)
+        // Logic: If amount > 1,00,000, require Dual Auth
+        else if (request.amount > 100000) {
+            strategyMode = "MULTISIG"
+        }
+        // RULE 3: INTEGRITY (TSA)
+        // Logic: If AI Risk Score is Moderate (> 0.1), seal with Timestamp
+        else if (aiScore > 0.1) {
+            strategyMode = "TSA"
+        }
+        // RULE 4: EFFICIENCY (Merkle)
+        // Logic: Safe, small transactions
+        else {
+            strategyMode = "MERKLE"
+        }
+        
+        println("🧠 INTELLIGENT SWITCH: Amount ₹${request.amount} | Risk $aiScore -> Using $strategyMode")
+
+        // --- STEP 3: SEAL THE TRANSACTION ---
         val event = TransactionEvent(
             id = request.id,
             fromAccount = request.fromAccount,
             toAccount = request.toAccount,
             amount = request.amount,
-            // FIX: Removed .toString() so it passes the raw Instant object
-            timestamp = Instant.now() 
+            timestamp = Instant.now()
         )
         
-        auditService.processTransaction(event)
+        // Pass the chosen mode to the Service
+        auditService.processTransaction(event, strategyMode)
 
-        // 3. RETURN SUCCESS TO UI
         return ResponseEntity.ok(mapOf(
             "status" to "success",
-            "message" to "Payment Verified, Sealed & Audited on Ledger",
-            "transactionId" to request.id
+            "message" to "Payment Sealed via $strategyMode Strategy",
+            "transactionId" to request.id,
+            "ai_analysis" to reasons,
+            "strategy_used" to strategyMode
         ))
     }
 
-    // --- OLD ENDPOINTS ---
-
-    @PostMapping("/transaction")
-    fun ingestTransaction(@RequestBody event: TransactionEvent): ResponseEntity<String> {
-        auditService.processTransaction(event)
-        return ResponseEntity.ok("Transaction ${event.id} received and buffered.")
-    }
-
-    @GetMapping("/verify/{id}")
-    fun verifyTransaction(@PathVariable id: Long): ResponseEntity<String> {
-        val isValid = auditService.verifyTransaction(id)
-        
-        return if (isValid) {
-            ResponseEntity.ok("✅ Verified: Transaction $id is immutable and secured on the ledger.")
-        } else {
-            ResponseEntity.status(404).body("❌ Not Found: Transaction $id is not yet audited.")
-        }
-    }
+    // --- DASHBOARD ENDPOINTS ---
 
     @GetMapping("/blocks")
     fun getRecentBlocks(): ResponseEntity<List<com.fin.shadow_ledger.model.AuditBlock>> {
         val blocks = auditService.getRecentBlocks() 
         return ResponseEntity.ok(blocks)
+    }
+
+    @GetMapping("/verify/{id}")
+    fun verifyTransaction(@PathVariable id: Long): ResponseEntity<String> {
+        val isValid = auditService.verifyTransaction(id)
+        return if (isValid) {
+            ResponseEntity.ok("✅ Verified: Transaction $id is secured on the ledger.")
+        } else {
+            ResponseEntity.status(404).body("❌ Not Found: Transaction $id is not yet audited.")
+        }
     }
 }
