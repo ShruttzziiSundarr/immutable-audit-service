@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Pay</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>body { background-color: #000; color: white; font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="flex justify-center items-center min-h-screen bg-gray-900">
+
+    <div class="w-full max-w-sm bg-black border border-gray-800 rounded-3xl p-6 relative overflow-hidden">
+        <div class="flex justify-between text-xs text-gray-500 mb-6">
+            <span>SHADOW NETWORK</span>
+            <span id="gpsStatus">📡 GPS: LOCATING...</span>
+        </div>
+
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-blue-600 rounded-full mx-auto mb-2 flex items-center justify-center text-2xl font-bold">R</div>
+            <h2 class="text-xl font-bold">Pay Receiver</h2>
+            <input type="text" id="receiver" value="Uber_Driver_Raj" class="bg-gray-800 text-center text-sm rounded p-1 w-full mt-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
+        </div>
+
+        <div class="mb-8 text-center">
+            <span class="text-gray-500 text-2xl">₹</span>
+            <input type="number" id="amount" value="200" class="bg-transparent text-5xl font-bold text-center w-32 focus:outline-none">
+        </div>
+
+        <button onclick="pay()" id="btn" class="w-full py-4 bg-blue-600 rounded-xl font-bold text-lg active:scale-95 transition-transform">
+            SWIPE TO PAY
+        </button>
+
+        <div id="logs" class="mt-6 text-xs text-gray-400 space-y-1 hidden"></div>
+    </div>
+
+<script>
+    let userLoc = { lat: 12.9716, lon: 77.5946 }; // Default Bangalore
+
+    // 1. Get Real GPS
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            document.getElementById('gpsStatus').innerText = "✅ GPS LOCKED";
+            document.getElementById('gpsStatus').classList.add("text-green-500");
+        });
+    }
+
+    async function pay() {
+        const btn = document.getElementById('btn');
+        const logs = document.getElementById('logs');
+        
+        btn.innerText = "ANALYZING RISK...";
+        btn.classList.add("opacity-50");
+        logs.classList.remove("hidden");
+        logs.innerHTML = "<div>🔄 Connecting to AI Sentinel...</div>";
+
+        const payload = {
+            id: Math.floor(Math.random() * 100000),
+            fromAccount: "User_Alice",
+            toAccount: document.getElementById('receiver').value,
+            amount: parseFloat(document.getElementById('amount').value),
+            // We rely on the backend to forward 'lat/lon' to Python 
+            // Or you can update your TransactionEvent class to accept lat/lon directly
+        };
+
+        try {
+            const res = await fetch('/api/v1/audit/payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                btn.style.backgroundColor = "#10b981";
+                btn.innerText = "PAYMENT SEALED";
+                logs.innerHTML += `<div class="text-green-400">✅ APPROVED: ${data.message}</div>`;
+            } else {
+                btn.style.backgroundColor = "#ef4444";
+                btn.innerText = "BLOCKED";
+                logs.innerHTML += `<div class="text-red-400">❌ BLOCKED: ${data.reasons}</div>`;
+            }
+        } catch (e) {
+            btn.innerText = "ERROR";
+            logs.innerHTML += `<div class="text-red-500">⚠️ Network Error</div>`;
+        }
+
+        setTimeout(() => { btn.innerText = "SWIPE TO PAY"; btn.style.backgroundColor = "#2563eb"; btn.classList.remove("opacity-50"); }, 4000);
+    }
+</script>
+</body>
+</html>
