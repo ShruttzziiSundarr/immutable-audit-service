@@ -1,89 +1,113 @@
 from flask import Flask, request, jsonify
-import networkx as nx
+import pandas as pd
 import numpy as np
 from sklearn.ensemble import IsolationForest
 from geopy.distance import geodesic
-import logging
+import networkx as nx
+import datetime
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
 
-# --- 1. ADMIN KYC DATABASE (The "World State") ---
-# Maps Blockchain IDs to Real Identities & Trust Scores
-admin_db = {
-    "User_Alice": {"role": "Student", "trust": 100, "home_loc": (12.9716, 77.5946)}, # Bangalore
-    "Uber_Driver_Raj": {"role": "Vendor", "trust": 500, "home_loc": (13.0827, 80.2707)}, # Chennai
-    "Hacker_007": {"role": "Suspect", "trust": 0, "home_loc": (55.7558, 37.6173)} # Moscow
-}
+# --- 1. MEMORY & TRAINING ---
+# In a real app, this loads from a database. Here, we train on startup.
+print("🧠 AI ENGINE: Initializing & Training Models...")
 
-# --- 2. SOCIAL GRAPH (Who trusts whom?) ---
-social_graph = nx.Graph()
-social_graph.add_edges_from([
-    ("User_Alice", "Uber_Driver_Raj"), 
-    ("User_Bob", "Uber_Driver_Raj"), 
-    ("User_Charlie", "Uber_Driver_Raj"), # Raj is a Hub
-    ("User_Dave", "Canteen_Shop")
-])
+# Mock "History" Data (User's normal behavior)
+# [Amount, Lat, Lon, Hour_of_Day]
+training_data = [
+    [500, 19.07, 72.87, 10],   # Coffee in Mumbai (Morning)
+    [2000, 19.07, 72.87, 14],  # Lunch in Mumbai
+    [150, 19.08, 72.88, 18],   # Snacks in Mumbai
+    [50000, 12.97, 77.59, 11], # Big txn in Bangalore (Valid VIP)
+]
 
-# --- 3. BEHAVIOR MODEL (Anomaly Detection) ---
-# Normal spending: [Amount]
-normal_data = np.array([[50], [100], [200], [500], [1000], [300]])
-model = IsolationForest(contamination=0.1, random_state=42)
-model.fit(normal_data)
+# Train Isolation Forest (Unsupervised Anomaly Detection)
+# It learns "Clusters" of normal behavior. Anything outside is an anomaly.
+clf = IsolationForest(contamination=0.1, random_state=42)
+clf.fit(training_data)
 
+# Trust Graph (NetworkX)
+# We map known "Good" accounts. Isolated nodes are suspicious.
+G = nx.Graph()
+G.add_edge("ACC-MUM-001", "MERCHANT-A") # Rahul trusts Merchant A
+G.add_edge("ACC-BLR-VIP", "MERCHANT-B") # Priya trusts Merchant B
+
+print("✅ AI ENGINE: Online & Listening on Port 5000")
+
+# --- 2. HELPER FUNCTIONS ---
+def calculate_velocity(prev_lat, prev_lon, curr_lat, curr_lon, time_delta_hours):
+    """Calculates speed of travel (km/h). If > 900 km/h, it's impossible."""
+    if prev_lat is None or time_delta_hours == 0:
+        return 0.0
+    
+    coords_1 = (prev_lat, prev_lon)
+    coords_2 = (curr_lat, curr_lon)
+    distance = geodesic(coords_1, coords_2).km
+    return distance / time_delta_hours
+
+# --- 3. THE ANALYZE ENDPOINT ---
 @app.route('/analyze', methods=['POST'])
-def analyze_risk():
-    try:
-        data = request.json
-        sender = data.get('fromAccount')
-        receiver = data.get('toAccount')
-        amount = float(data.get('amount'))
-        current_lat = data.get('lat') # From Frontend GPS
-        current_lon = data.get('lon')
+def analyze_transaction():
+    data = request.json
+    
+    # Extract Features
+    user_id = data.get('fromAccount')
+    amount = data.get('amount')
+    lat = data.get('lat', 0.0)
+    lon = data.get('lon', 0.0)
+    
+    # --- LOGIC LAYER 1: ANOMALY DETECTION (ML) ---
+    # We ask the model: "Is this transaction normal compared to history?"
+    # 1 = Normal, -1 = Anomaly
+    # We assume 'Hour 12' as a dummy time feature for now
+    prediction = clf.predict([[amount, lat, lon, 12]]) 
+    is_anomaly = prediction[0] == -1
 
-        risk_score = 0.0
-        reasons = []
+    # --- LOGIC LAYER 2: IMPOSSIBLE TRAVEL (PHYSICS) ---
+    # (Simplified: We assume the user was at 'Home' 1 hour ago)
+    # In prod, we fetch the *actual* last transaction time/location.
+    home_lat = 19.0760 # Hardcoded for demo (Mumbai)
+    velocity = calculate_velocity(home_lat, 72.8777, lat, lon, 1.0) # 1 hour diff
+    
+    impossible_travel = velocity > 800 # Faster than a plane?
 
-        # CHECK 1: ADMIN KYC (Does he exist?)
-        receiver_profile = admin_db.get(receiver)
-        if not receiver_profile:
-            risk_score += 0.4
-            reasons.append(f"⚠️ UNKNOWN: {receiver} not in Admin DB.")
-        elif receiver_profile['role'] == "Suspect":
-            risk_score += 1.0
-            reasons.append(f"🚨 BLACKLISTED: {receiver} is a known suspect.")
-        
-        # CHECK 2: SOCIAL GRAPH (Is he a Hub?)
-        connections = social_graph.degree(receiver) if receiver in social_graph else 0
-        if connections > 2:
-            risk_score -= 0.5
-            reasons.append(f"✅ TRUSTED HUB: Connected to {connections} people.")
+    # --- LOGIC LAYER 3: GRAPH TRUST ---
+    # Is the receiver unknown?
+    receiver = data.get('toAccount')
+    known_receiver = G.has_node(receiver)
 
-        # CHECK 3: BEHAVIOR (Is amount weird?)
-        if model.predict([[amount]])[0] == -1:
-            risk_score += 0.3
-            reasons.append(f"⚠️ ANOMALY: ₹{amount} is unusual for you.")
+    # --- SCORING ENGINE ---
+    risk_score = 0.1 # Base Risk
+    reasons = []
 
-        # CHECK 4: GEOLOCATION (Impossible Travel)
-        if current_lat and sender in admin_db:
-            home_loc = admin_db[sender]['home_loc']
-            distance = geodesic(home_loc, (current_lat, current_lon)).kilometers
-            if distance > 500:
-                risk_score += 0.9
-                reasons.append(f"🚨 IMPOSSIBLE TRAVEL: {int(distance)}km from home!")
-            else:
-                reasons.append(f"✅ GPS OK: {int(distance)}km from home.")
+    if is_anomaly:
+        risk_score += 0.4
+        reasons.append(f"Spending Anomaly (Amount: {amount})")
 
-        # FINAL VERDICT
-        decision = "APPROVED"
-        if risk_score > 0.6: decision = "BLOCKED"
-        elif risk_score > 0.0: decision = "WARNING"
+    if impossible_travel:
+        risk_score += 0.5
+        reasons.append(f"Impossible Travel (Speed: {int(velocity)} km/h)")
 
-        return jsonify({"decision": decision, "reasons": reasons, "score": risk_score})
+    if not known_receiver:
+        risk_score += 0.2
+        reasons.append("Unknown Beneficiary (Graph Isolation)")
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # Cap score at 1.0
+    risk_score = min(risk_score, 1.0)
+
+    # --- DECISION ---
+    decision = "APPROVED"
+    if risk_score > 0.8:
+        decision = "BLOCKED"
+    elif risk_score > 0.5:
+        decision = "REVIEW"
+
+    return jsonify({
+        "score": round(risk_score, 2),
+        "decision": decision,
+        "reasons": reasons,
+        "strategy_recommendation": "MULTISIG" if risk_score > 0.6 else ("TSA" if risk_score > 0.2 else "MERKLE")
+    })
 
 if __name__ == '__main__':
-    print("🧠 AI BRAIN ACTIVE on Port 5000")
-    app.run(port=5000)
+    app.run(port=5000, debug=True)

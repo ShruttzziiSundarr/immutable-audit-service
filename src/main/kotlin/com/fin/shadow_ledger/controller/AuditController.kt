@@ -8,14 +8,23 @@ import org.springframework.web.client.RestTemplate
 import java.time.Instant
 
 // Data class to map incoming JSON from pay.html
+// ... imports
+
+// UPDATED Payload to include "Context"
 data class PaymentRequest(
-    val id: Long,
-    val fromAccount: String,
+    val accountId: String, // Who is paying?
     val toAccount: String,
     val amount: Double,
-    val lat: Double? = null, 
-    val lon: Double? = null  
+    
+    // Context for AI
+    val currentLat: Double,
+    val currentLon: Double,
+    val deviceId: String,
+    val ipAddress: String,
+    val biometricToken: Boolean = false // Did they use FaceID?
 )
+
+// ... Rest of the controller
 
 @RestController
 @RequestMapping("/api/v1/audit")
