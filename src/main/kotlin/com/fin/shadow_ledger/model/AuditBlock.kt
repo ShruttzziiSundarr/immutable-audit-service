@@ -2,17 +2,23 @@ package com.fin.shadow_ledger.model
 
 import jakarta.persistence.*
 import java.time.Instant
-import java.util.UUID
 
 @Entity
 @Table(name = "audit_blocks")
-class AuditBlock(
-    @Id @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID? = null,
+data class AuditBlock(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val blockHeight: Long = 0,
 
-    val merkleRoot: String,        // The fingerprint of the whole batch
-    val previousBlockHash: String, // Links to the previous block (Blockchain style)
+    @Column(nullable = false)
+    val merkleRoot: String, // The final hash proof
+
+    @Column(nullable = false)
+    val previousBlockHash: String, // Links to previous block (Blockchain logic)
+
+    @Column(nullable = false)
     val transactionCount: Int,
-    val blockHeight: Long,         // Block #1, #2, #3...
+
+    @Column(nullable = false)
     val timestamp: Instant = Instant.now()
 )
