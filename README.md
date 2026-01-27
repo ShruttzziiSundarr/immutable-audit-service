@@ -36,8 +36,7 @@
 ## ⚡ See It In Action
 > *The system detecting "Impossible Travel" in real-time and switching from Merkle Hashing to Multi-Sig Security.*
 
-![Shadow Ledger Demo](screenshots/demo.gif)
-*(Note: Upload a GIF of your project running to a 'screenshots' folder to make this appear!)*
+
 
 ---
 
