@@ -33,38 +33,38 @@
 
 ---
 
-## ⚡ See It In Action
+##  See It In Action
 > *The system detecting "Impossible Travel" in real-time and switching from Merkle Hashing to Multi-Sig Security.*
 
 
 
 ---
 
-## 🚀 The Problem
+##  The Problem
 Traditional banking audit trails are **static**. They apply the same security level to a ₹50 coffee transaction as they do to a ₹50 Lakh corporate transfer.
 * **Too Strict:** Wastes computing power on micro-transactions.
 * **Too Loose:** Fails to capture legal non-repudiation for high-value transfers.
 
-## 💡 The Solution: "Risk-Adaptive Auditing"
+##  The Solution: "Risk-Adaptive Auditing"
 **Shadow Ledger** introduces a **Hybrid Architecture**:
 1.  **AI Sentinel (Python):** Analyzes transaction Context (Geolocation, Graph Trust, Anomalies) to generate a Risk Score (0.0 - 1.0).
 2.  **Strategy Engine (Kotlin):** Instantly switches the hashing protocol based on the score.
 
 ---
 
-## 🛡️ The "Grand Slam" Strategies
+##  The "Grand Slam" Strategies
 The system implements the **Strategy Design Pattern** to hot-swap cryptographic protocols:
 
 | Strategy | Risk Level | Use Case | Technology Implemented |
 | :--- | :--- | :--- | :--- |
-| **🌳 Merkle Tree** | Low (< 0.2) | Micro-payments | **SHA-256 Batch Hashing** (90% Storage Savings) |
-| **⚖️ TSA Legal** | Medium | Asset Transfers | **RSA-2048 Digital Signatures** (RFC 3161 Compliant) |
-| **🔐 Multi-Sig** | High (> 0.5) | Corporate | **Dual-Approval** (Admin + System) |
-| **👻 ZKP Ghost** | VIP / Privacy | Private Clients | **Hash Commitments** (Zero-Knowledge Proof Simulation) |
+| ** Merkle Tree** | Low (< 0.2) | Micro-payments | **SHA-256 Batch Hashing** (90% Storage Savings) |
+| ** TSA Legal** | Medium | Asset Transfers | **RSA-2048 Digital Signatures** (RFC 3161 Compliant) |
+| ** Multi-Sig** | High (> 0.5) | Corporate | **Dual-Approval** (Admin + System) |
+| ** ZKP Ghost** | VIP / Privacy | Private Clients | **Hash Commitments** (Zero-Knowledge Proof Simulation) |
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```mermaid
 graph TD
