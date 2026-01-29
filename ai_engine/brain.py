@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 # --- 1. MEMORY & TRAINING ---
 # In a real app, this loads from a database. Here, we train on startup.
-print("🧠 AI ENGINE: Initializing & Training Models...")
+print(" AI ENGINE: Initializing & Training Models...")
 
 # Mock "History" Data (User's normal behavior)
 # [Amount, Lat, Lon, Hour_of_Day]

@@ -13,27 +13,22 @@ class DataLoader {
     fun initDatabase(userRepository: UserRepository) = CommandLineRunner {
         if (userRepository.count() == 0L) {
             val users = listOf(
-                // 1. The Regular User (Lives in Mumbai)
+                // Normal Users
+                User("ACC-MUM-001", "Rahul Sharma", "TIER_2", 19.0760, 72.8777),
+                User("ACC-BLR-VIP", "Priya Tech", "VIP", 12.9716, 77.5946),
+
+                // NEW: The Honeypot Trap
                 User(
-                    accountId = "ACC-MUM-001",
-                    fullName = "Rahul Sharma",
-                    kycTier = "TIER_2",
-                    homeLatitude = 19.0760, // Mumbai
-                    homeLongitude = 72.8777,
-                    avgMonthlySpend = 25000.0
-                ),
-                // 2. The VIP User (Lives in Bangalore)
-                User(
-                    accountId = "ACC-BLR-VIP",
-                    fullName = "Priya Tech",
+                    accountId = "ACC-ROOT-ADMIN",
+                    fullName = "System Administrator",
                     kycTier = "VIP",
-                    homeLatitude = 12.9716, // Bangalore
-                    homeLongitude = 77.5946,
-                    avgMonthlySpend = 500000.0
+                    homeLatitude = 0.0,
+                    homeLongitude = 0.0,
+                    isHoneypot = true // <--- Set to TRUE
                 )
             )
             userRepository.saveAll(users)
-            println("✅ DUMMY USERS LOADED: Rahul (Mumbai) & Priya (Bangalore)")
+            println("✅ DATABASE SEEDED: Includes Honeypot [ACC-ROOT-ADMIN]")
         }
     }
 }
