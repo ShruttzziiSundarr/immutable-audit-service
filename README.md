@@ -57,10 +57,10 @@ The system implements the **Strategy Design Pattern** to hot-swap cryptographic 
 
 | Strategy | Risk Level | Use Case | Technology Implemented |
 | :--- | :--- | :--- | :--- |
-| ** Merkle Tree** | Low (< 0.2) | Micro-payments | **SHA-256 Batch Hashing** (90% Storage Savings) |
-| ** TSA Legal** | Medium | Asset Transfers | **RSA-2048 Digital Signatures** (RFC 3161 Compliant) |
-| ** Multi-Sig** | High (> 0.5) | Corporate | **Dual-Approval** (Admin + System) |
-| ** ZKP Ghost** | VIP / Privacy | Private Clients | **Hash Commitments** (Zero-Knowledge Proof Simulation) |
+| **Merkle Tree** | Low (< 0.2) | Micro-payments | **SHA-256 Batch Hashing** (90% Storage Savings) |
+| **TSA Legal** | Medium | Asset Transfers | **RSA-2048 Digital Signatures** (RFC 3161 Compliant) |
+| **Multi-Sig** | High (> 0.5) | Corporate | **Dual-Approval** (Admin + System) |
+| **ZKP Ghost** | VIP / Privacy | Private Clients | **Hash Commitments** (Zero-Knowledge Proof Simulation) |
 
 ---
 
