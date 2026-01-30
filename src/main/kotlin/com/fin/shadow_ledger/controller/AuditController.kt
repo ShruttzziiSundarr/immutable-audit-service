@@ -2,71 +2,68 @@ package com.fin.shadow_ledger.controller
 
 import com.fin.shadow_ledger.dto.PaymentRequest
 import com.fin.shadow_ledger.dto.TransactionEvent
+import com.fin.shadow_ledger.service.AiEngineClient
 import com.fin.shadow_ledger.service.AuditService
 import com.fin.shadow_ledger.repository.UserRepository
+import jakarta.validation.Valid
+import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import org.springframework.web.client.RestTemplate
 import java.time.Instant
 
 @RestController
 @RequestMapping("/api/v1/audit")
 class AuditController(
     private val auditService: AuditService,
-    private val userRepository: UserRepository // Inject Repo
+    private val userRepo: UserRepository,
+    private val aiClient: AiEngineClient
 ) {
+    private val logger = LoggerFactory.getLogger(AuditController::class.java)
 
     @PostMapping("/payment")
-    fun processPayment(@RequestBody request: PaymentRequest): ResponseEntity<Any> {
-        println("💰 Incoming Tx: ₹${request.amount} from ${request.accountId}")
+    fun processPayment(@Valid @RequestBody req: PaymentRequest): ResponseEntity<Any> {
+        logger.info("Processing Payment: ${req.amount} from ${req.accountId}")
 
-        // --- NEW: HONEYPOT DEFENSE SYSTEM ---
-        val sender = userRepository.findById(request.accountId).orElse(null)
-
-        if (sender != null && sender.isHoneypot) {
-            println("🚨 SECURITY ALERT: HONEYPOT TRIGGERED BY IP: ${request.ipAddress}")
-            println("🔒 SYSTEM LOCKDOWN INITIATED.")
-
-            // Return 418 (Teapot) or 403 (Forbidden) with a scary message
-            return ResponseEntity.status(418).body(mapOf(
-                "status" to "CRITICAL_SECURITY_EVENT",
-                "error" to "INTRUSION_DETECTED",
-                "message" to "This account is monitored. Your IP [${request.ipAddress}] has been logged and reported.",
-                "action" to "SYSTEM_LOCKDOWN"
-            ))
-        }
-        // -------------------------------------
-
-        var strategyMode = "MERKLE"
-        var riskScore = 0.0
-        var reasons = listOf("Safe")
-
-        // Call Python AI (Same as before)
-        try {
-            val restTemplate = RestTemplate()
-            val aiResponse = restTemplate.postForObject(
-                "http://localhost:5000/analyze",
-                mapOf("fromAccount" to request.accountId, "amount" to request.amount, "lat" to request.currentLat, "lon" to request.currentLon),
-                Map::class.java
-            )
-            val scoreRaw = aiResponse?.get("score")
-            riskScore = if (scoreRaw is Int) scoreRaw.toDouble() else (scoreRaw as? Double ?: 0.0)
-            reasons = aiResponse?.get("reasons") as List<String>
-        } catch (e: Exception) {
-            println("⚠️ AI Offline.")
+        // 1. Honeypot Check
+        val user = userRepo.findById(req.accountId).orElse(null)
+        if (user != null && user.isHoneypot) {
+            logger.warn("HONEYPOT TRIGGERED: ${req.ipAddress}")
+            // Silent Ban (Return 200 OK but don't process)
+            return ResponseEntity.ok(mapOf("status" to "QUEUED", "ref" to "HP-${System.currentTimeMillis()}"))
         }
 
-        // Logic (Same as before)
-        if (riskScore > 0.8) return ResponseEntity.status(403).body(mapOf("status" to "blocked", "reasons" to reasons))
-        if (request.amount == 777.0) strategyMode = "ZKP"
-        else if (riskScore > 0.5) strategyMode = "MULTISIG"
-        else if (riskScore > 0.2) strategyMode = "TSA"
+        // 2. Async AI Analysis
+        val aiPayload = mapOf(
+            "fromAccount" to req.accountId,
+            "instrument" to req.paymentInstrumentId,
+            "amount" to req.amount,
+            "lat" to req.currentLat,
+            "lon" to req.currentLon
+        )
 
-        // Seal
-        val event = TransactionEvent(System.currentTimeMillis(), request.accountId, request.toAccount, request.amount, Instant.now())
+        val aiResult = aiClient.analyzeAsync(aiPayload).join() // Wait (but with timeout from service)
+        val riskScore = (aiResult["score"] as? Number)?.toDouble() ?: 0.0
+        val reasons = aiResult["reasons"] as? List<*>
+
+        // 3. Strategy Selection
+        val strategyMode = when {
+            req.amount == 777.0 -> "ZKP"
+            riskScore > 0.8 -> return ResponseEntity.status(403).body(mapOf("status" to "BLOCKED", "reasons" to reasons))
+            riskScore > 0.5 -> "MULTISIG"
+            riskScore > 0.2 -> "TSA"
+            else -> "MERKLE"
+        }
+
+        // 4. Seal
+        val event = TransactionEvent(System.currentTimeMillis(), req.accountId, req.toAccount, req.amount, Instant.now())
         auditService.processTransaction(event, strategyMode)
 
-        return ResponseEntity.ok(mapOf("status" to "success", "strategy" to strategyMode, "risk_score" to riskScore))
+        return ResponseEntity.ok(mapOf(
+            "status" to "Sealed",
+            "strategy" to strategyMode,
+            "risk" to riskScore,
+            "proof_metadata" to "Included in Ledger"
+        ))
     }
 
     @GetMapping("/blocks")

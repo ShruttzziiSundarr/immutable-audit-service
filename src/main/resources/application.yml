@@ -1,19 +1,22 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: shadow-ledger
 
   # Database Configuration
   datasource:
-    url: jdbc:postgresql://localhost:5432/shadow_ledger_db
-    username: shadow_user
-    password: shadow_password
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/shadow_ledger_db}
+    username: ${DATABASE_USER:shadow_user}
+    password: ${DATABASE_PASSWORD:shadow_password}
     driver-class-name: org.postgresql.Driver
 
-  # JPA Settings (Auto-create tables)
+  # JPA Settings
   jpa:
     hibernate:
-      ddl-auto: update  # Auto-update tables (schema fixed)
-    show-sql: true      # This lets us see the SQL in the terminal (cool for debugging)
+      ddl-auto: update
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -21,7 +24,19 @@ spring:
   # Redis Configuration
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+# AI Engine Configuration
+ai:
+  engine:
+    url: ${AI_ENGINE_URL:http://localhost:5000}
+    timeout: ${AI_ENGINE_TIMEOUT:2000}
+
+# Security Configuration
+security:
+  api-key: ${API_KEY:shadow-secret-key-123}
+
+# Audit Settings
 audit:
   mode: TSA_STRATEGY

@@ -1,0 +1,91 @@
+{
+  "model_config": {
+    "isolation_forest": {
+      "contamination": 0.1,
+      "n_estimators": 100,
+      "random_state": 42,
+      "description": "Unsupervised anomaly detection - anomalies are 'few and different' (Liu & Zhou, 2008)"
+    },
+    "velocity_detection": {
+      "max_travel_speed_kmh": 900,
+      "description": "Impossible travel detection - flags if velocity exceeds commercial aircraft speed"
+    },
+    "transaction_velocity": {
+      "window_minutes": 5,
+      "max_transactions": 10,
+      "description": "Rate limiting to detect card testing, bot attacks, account compromise"
+    },
+    "structuring_detection": {
+      "reporting_thresholds": [10000, 50000, 100000, 200000],
+      "proximity_margin": 500,
+      "description": "Detect transactions just below reporting thresholds (anti-structuring)"
+    }
+  },
+  "training_data": {
+    "description": "Historical normal transaction patterns for Isolation Forest training",
+    "features": ["amount", "latitude", "longitude", "hour_of_day"],
+    "normal_transactions": [
+      {"amount": 500, "lat": 19.0760, "lon": 72.8777, "hour": 10, "note": "Morning coffee - Mumbai"},
+      {"amount": 2000, "lat": 19.0760, "lon": 72.8777, "hour": 14, "note": "Lunch - Mumbai"},
+      {"amount": 150, "lat": 19.0800, "lon": 72.8800, "hour": 18, "note": "Evening snacks - Mumbai"},
+      {"amount": 5000, "lat": 19.0760, "lon": 72.8777, "hour": 20, "note": "Dinner - Mumbai"},
+      {"amount": 50000, "lat": 12.9716, "lon": 77.5946, "hour": 11, "note": "Business transaction - Bangalore VIP"},
+      {"amount": 25000, "lat": 12.9716, "lon": 77.5946, "hour": 15, "note": "Afternoon purchase - Bangalore"},
+      {"amount": 1000, "lat": 28.6139, "lon": 77.2090, "hour": 12, "note": "Delhi transaction"},
+      {"amount": 3500, "lat": 13.0827, "lon": 80.2707, "hour": 16, "note": "Chennai transaction"}
+    ]
+  },
+  "user_profiles": {
+    "description": "Known user home locations for impossible travel detection",
+    "accounts": {
+      "ACC-MUM-001": {
+        "home_lat": 19.0760,
+        "home_lon": 72.8777,
+        "city": "Mumbai",
+        "typical_max_amount": 10000,
+        "kyc_tier": "TIER_2"
+      },
+      "ACC-BLR-VIP": {
+        "home_lat": 12.9716,
+        "home_lon": 77.5946,
+        "city": "Bangalore",
+        "typical_max_amount": 100000,
+        "kyc_tier": "VIP"
+      },
+      "ACC-DEL-003": {
+        "home_lat": 28.6139,
+        "home_lon": 77.2090,
+        "city": "Delhi",
+        "typical_max_amount": 25000,
+        "kyc_tier": "TIER_2"
+      }
+    }
+  },
+  "trust_graph": {
+    "description": "Graph-based fraud detection - known trusted relationships (GNN-inspired)",
+    "edges": [
+      {"from": "ACC-MUM-001", "to": "MERCHANT-A", "trust_score": 0.9},
+      {"from": "ACC-MUM-001", "to": "MERCHANT-GROCERY", "trust_score": 0.85},
+      {"from": "ACC-BLR-VIP", "to": "MERCHANT-B", "trust_score": 0.95},
+      {"from": "ACC-BLR-VIP", "to": "MERCHANT-TECH", "trust_score": 0.9},
+      {"from": "ACC-DEL-003", "to": "MERCHANT-C", "trust_score": 0.8}
+    ]
+  },
+  "risk_weights": {
+    "description": "Weighted scoring based on research - Risk-Based Authentication (RBA)",
+    "base_risk": 0.05,
+    "anomaly_detection": 0.35,
+    "impossible_travel": 0.40,
+    "unknown_beneficiary": 0.15,
+    "velocity_abuse": 0.30,
+    "structuring_attempt": 0.25,
+    "amount_deviation": 0.20,
+    "odd_hour_transaction": 0.10
+  },
+  "risk_thresholds": {
+    "low": 0.2,
+    "medium": 0.5,
+    "high": 0.8,
+    "description": "PSD2/NIST aligned thresholds for step-up authentication"
+  }
+}
