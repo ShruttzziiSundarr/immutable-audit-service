@@ -28,7 +28,6 @@ class AuditController(
         val user = userRepo.findById(req.accountId).orElse(null)
         if (user != null && user.isHoneypot) {
             logger.warn("HONEYPOT TRIGGERED: ${req.ipAddress}")
-            // Silent Ban (Return 200 OK but don't process)
             return ResponseEntity.ok(mapOf("status" to "QUEUED", "ref" to "HP-${System.currentTimeMillis()}"))
         }
 
@@ -41,7 +40,7 @@ class AuditController(
             "lon" to req.currentLon
         )
 
-        val aiResult = aiClient.analyzeAsync(aiPayload).join() // Wait (but with timeout from service)
+        val aiResult = aiClient.analyzeAsync(aiPayload).join()
         val riskScore = (aiResult["score"] as? Number)?.toDouble() ?: 0.0
         val reasons = aiResult["reasons"] as? List<*>
 

@@ -14,10 +14,9 @@ import org.springframework.web.filter.OncePerRequestFilter
 
 @Configuration
 @EnableWebSecurity
-class SecurityConfig {
-
-    @Value("\${security.api-key}")
-    private lateinit var validApiKey: String
+class SecurityConfig(
+    @Value("\${security.api-key:shadow-secret-key-123}") private val validApiKey: String
+) {
 
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
