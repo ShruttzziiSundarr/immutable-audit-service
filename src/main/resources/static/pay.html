@@ -55,38 +55,59 @@
         logs.classList.remove("hidden");
         logs.innerHTML = "<div>🔄 Connecting to AI Sentinel...</div>";
 
+        // FIX: Payload MUST match PaymentRequest.kt
         const payload = {
-            id: Math.floor(Math.random() * 100000),
-            fromAccount: "User_Alice",
+            accountId: "ACC-MUM-001", 
+            paymentInstrumentId: "DEVICE-ID-99", 
             toAccount: document.getElementById('receiver').value,
             amount: parseFloat(document.getElementById('amount').value),
-            // We rely on the backend to forward 'lat/lon' to Python 
-            // Or you can update your TransactionEvent class to accept lat/lon directly
+            currentLat: userLoc.lat,
+            currentLon: userLoc.lon,
+            ipAddress: "192.168.1.105"
         };
 
         try {
             const res = await fetch('/api/v1/audit/payment', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': 'shadow-secret-key-123'
+                },
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
-
+            
             if (res.ok) {
-                btn.style.backgroundColor = "#10b981";
+                btn.style.backgroundColor = "#10b981"; // Green
                 btn.innerText = "PAYMENT SEALED";
-                logs.innerHTML += `<div class="text-green-400">✅ APPROVED: ${data.message}</div>`;
+                logs.innerHTML += `<div class="text-green-400">✅ APPROVED: ${data.strategy}</div>`;
+                if (data.risk !== undefined) {
+                     logs.innerHTML += `<div class="text-xs text-gray-500">Risk Score: ${data.risk}</div>`;
+                }
             } else {
-                btn.style.backgroundColor = "#ef4444";
+                btn.style.backgroundColor = "#ef4444"; // Red
                 btn.innerText = "BLOCKED";
-                logs.innerHTML += `<div class="text-red-400">❌ BLOCKED: ${data.reasons}</div>`;
+                
+                let reason = "Unknown Error";
+                if (data.reasons) reason = data.reasons;
+                else if (data.errors) reason = JSON.stringify(data.errors);
+                else if (data.message) reason = data.message;
+                
+                logs.innerHTML += `<div class="text-red-400">❌ BLOCKED: ${reason}</div>`;
             }
         } catch (e) {
+            console.error(e);
             btn.innerText = "ERROR";
-            logs.innerHTML += `<div class="text-red-500">⚠️ Network Error</div>`;
+            logs.innerHTML += `<div class="text-red-500">⚠️ Network Error (Check Server Console)</div>`;
         }
 
-        setTimeout(() => { btn.innerText = "SWIPE TO PAY"; btn.style.backgroundColor = "#2563eb"; btn.classList.remove("opacity-50"); }, 4000);
+        setTimeout(() => { 
+            if(btn.innerText !== "BLOCKED") {
+                btn.innerText = "SWIPE TO PAY"; 
+                btn.style.backgroundColor = "#2563eb"; 
+                btn.classList.remove("opacity-50"); 
+            }
+        }, 4000);
     }
 </script>
 </body>

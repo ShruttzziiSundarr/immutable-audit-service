@@ -1,4 +1,4 @@
-package com.fin.shadow_ledger.dto  // <--- This was likely missing or wrong
+package com.fin.shadow_ledger.dto
 
 import java.time.Instant
 import com.fin.shadow_ledger.crypto.HashUtils
