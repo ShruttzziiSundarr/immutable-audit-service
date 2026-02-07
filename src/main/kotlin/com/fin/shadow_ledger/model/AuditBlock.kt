@@ -4,21 +4,24 @@ import jakarta.persistence.*
 import java.time.Instant
 
 @Entity
-@Table(name = "audit_blocks")
 data class AuditBlock(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val blockHeight: Long = 0,
+    val id: Long? = null,
 
-    @Column(nullable = false)
-    val merkleRoot: String, // The final hash proof
+    val transactionId: String, // UUID for tracking
 
-    @Column(nullable = false)
-    val previousBlockHash: String, // Links to previous block (Blockchain logic)
+    @Column(length = 1024)
+    val clientSignature: String, // Step 3: Non-repudiation proof
 
-    @Column(nullable = false)
-    val transactionCount: Int,
+    @Column(length = 1024)
+    val serverSignature: String, // Step 6: Bank's approval proof
 
-    @Column(nullable = false)
-    val timestamp: Instant = Instant.now()
+    val riskScore: Double,
+    
+    val riskFlags: String, // "VELOCITY_SPIKE, NEW_DEVICE"
+
+    val policyVersion: String, // "v1.3" - Crucial for auditing "Why did we approve this?"
+
+    val timestamp: Instant
 )

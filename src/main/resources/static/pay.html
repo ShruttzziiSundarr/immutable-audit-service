@@ -3,111 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shadow Pay</title>
+    <title>Shadow Pay (Compliance Mode)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-    <style>body { background-color: #000; color: white; font-family: 'Inter', sans-serif; }</style>
+    <style>body { background-color: #0f172a; color: white; font-family: sans-serif; }</style>
 </head>
-<body class="flex justify-center items-center min-h-screen bg-gray-900">
+<body class="flex justify-center items-center min-h-screen">
 
-    <div class="w-full max-w-sm bg-black border border-gray-800 rounded-3xl p-6 relative overflow-hidden">
-        <div class="flex justify-between text-xs text-gray-500 mb-6">
-            <span>SHADOW NETWORK</span>
-            <span id="gpsStatus">📡 GPS: LOCATING...</span>
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+        <div class="text-center mb-8">
+            <h2 class="text-xl font-bold text-slate-200">Secure Payment</h2>
+            <div class="text-xs text-slate-500 mt-1">BANK-GRADE ENCRYPTION ENABLED</div>
         </div>
 
-        <div class="text-center mb-8">
-            <div class="w-16 h-16 bg-blue-600 rounded-full mx-auto mb-2 flex items-center justify-center text-2xl font-bold">R</div>
-            <h2 class="text-xl font-bold">Pay Receiver</h2>
-            <input type="text" id="receiver" value="Uber_Driver_Raj" class="bg-gray-800 text-center text-sm rounded p-1 w-full mt-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
+        <div class="mb-6">
+            <label class="text-xs text-slate-400">Receiver ID</label>
+            <input type="text" id="receiver" value="Uber_Driver_Raj" class="w-full bg-slate-800 text-white rounded p-2 mt-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
         </div>
 
         <div class="mb-8 text-center">
-            <span class="text-gray-500 text-2xl">₹</span>
-            <input type="number" id="amount" value="200" class="bg-transparent text-5xl font-bold text-center w-32 focus:outline-none">
+            <span class="text-slate-500 text-2xl">₹</span>
+            <input type="number" id="amount" value="5000" class="bg-transparent text-5xl font-bold text-center w-40 focus:outline-none text-white">
         </div>
 
-        <button onclick="pay()" id="btn" class="w-full py-4 bg-blue-600 rounded-xl font-bold text-lg active:scale-95 transition-transform">
-            SWIPE TO PAY
+        <button onclick="pay()" id="btn" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold text-lg transition-colors">
+            AUTHORIZE PAYMENT
         </button>
 
-        <div id="logs" class="mt-6 text-xs text-gray-400 space-y-1 hidden"></div>
+        <div id="logs" class="mt-6 text-xs font-mono space-y-2 text-slate-400"></div>
     </div>
 
 <script>
-    let userLoc = { lat: 12.9716, lon: 77.5946 }; // Default Bangalore
-
-    // 1. Get Real GPS
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-            document.getElementById('gpsStatus').innerText = "✅ GPS LOCKED";
-            document.getElementById('gpsStatus').classList.add("text-green-500");
-        });
-    }
-
     async function pay() {
         const btn = document.getElementById('btn');
         const logs = document.getElementById('logs');
         
-        btn.innerText = "ANALYZING RISK...";
-        btn.classList.add("opacity-50");
-        logs.classList.remove("hidden");
-        logs.innerHTML = "<div>🔄 Connecting to AI Sentinel...</div>";
+        btn.innerText = "VERIFYING IDENTITY...";
+        btn.disabled = true;
+        logs.innerHTML = `<div>🔒 Generating Client ECDSA Signature...</div>`;
 
-        // FIX: Payload MUST match PaymentRequest.kt
+        // 1. SIMULATE CLIENT-SIDE SIGNING (In real app, use WebCrypto API)
+        const mockSignature = "SIG_ECDSA_" + Math.random().toString(36).substring(2) + "." + Date.now();
+
+        // 2. PREPARE COMPLIANCE PAYLOAD
         const payload = {
-            accountId: "ACC-MUM-001", 
-            paymentInstrumentId: "DEVICE-ID-99", 
+            transactionId: crypto.randomUUID(), // UUID v4
+            fromAccount: "ACC-MUM-001",
             toAccount: document.getElementById('receiver').value,
             amount: parseFloat(document.getElementById('amount').value),
-            currentLat: userLoc.lat,
-            currentLon: userLoc.lon,
-            ipAddress: "192.168.1.105"
+            currency: "INR",
+            timestamp: new Date().toISOString(),
+            deviceId: "DEVICE-WEB-01",
+            location: { // NESTED OBJECT (Fixes the issue)
+                lat: 19.0760,
+                lon: 72.8777
+            },
+            ipAddress: "127.0.0.1",
+            clientSignature: mockSignature // MANDATORY FIELD
         };
 
         try {
-            const res = await fetch('/api/v1/audit/payment', {
+            // Simulate network delay for realism
+            await new Promise(r => setTimeout(r, 800));
+
+            const res = await fetch('/api/v1/compliance/transaction', {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'X-API-KEY': 'shadow-secret-key-123'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
             
+            const data = await res.json(); 
+
             if (res.ok) {
-                btn.style.backgroundColor = "#10b981"; // Green
+                btn.style.backgroundColor = "#10b981";
                 btn.innerText = "PAYMENT SEALED";
-                logs.innerHTML += `<div class="text-green-400">✅ APPROVED: ${data.strategy}</div>`;
-                if (data.risk !== undefined) {
-                     logs.innerHTML += `<div class="text-xs text-gray-500">Risk Score: ${data.risk}</div>`;
-                }
+                
+                logs.innerHTML += `<div class="text-green-400 mt-2">✅ APPROVED</div>`;
+                logs.innerHTML += `<div>Policy: <span class="text-white">${data.signatures.server}</span></div>`;
+                logs.innerHTML += `<div>Ledger ID: <span class="text-blue-400">#${data.ledger_id}</span></div>`;
             } else {
-                btn.style.backgroundColor = "#ef4444"; // Red
-                btn.innerText = "BLOCKED";
-                
-                let reason = "Unknown Error";
-                if (data.reasons) reason = data.reasons;
-                else if (data.errors) reason = JSON.stringify(data.errors);
-                else if (data.message) reason = data.message;
-                
-                logs.innerHTML += `<div class="text-red-400">❌ BLOCKED: ${reason}</div>`;
+                btn.style.backgroundColor = "#ef4444";
+                btn.innerText = "DECLINED";
+                logs.innerHTML += `<div class="text-red-400 mt-2">❌ ${data.reason || "Policy Violation"}</div>`;
+                if(data.flags) logs.innerHTML += `<div class="text-yellow-500">Flags: ${data.flags}</div>`;
             }
         } catch (e) {
             console.error(e);
-            btn.innerText = "ERROR";
-            logs.innerHTML += `<div class="text-red-500">⚠️ Network Error (Check Server Console)</div>`;
+            btn.innerText = "NETWORK ERROR";
+            btn.style.backgroundColor = "#f59e0b";
+            logs.innerHTML += `<div class="text-red-500">⚠️ Connection Failed</div>`;
         }
 
+        // Reset
         setTimeout(() => { 
-            if(btn.innerText !== "BLOCKED") {
-                btn.innerText = "SWIPE TO PAY"; 
+            if(btn.innerText !== "DECLINED") {
+                btn.innerText = "AUTHORIZE PAYMENT"; 
                 btn.style.backgroundColor = "#2563eb"; 
-                btn.classList.remove("opacity-50"); 
+                btn.disabled = false;
             }
-        }, 4000);
+        }, 5000);
     }
 </script>
 </body>

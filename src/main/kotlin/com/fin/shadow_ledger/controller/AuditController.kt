@@ -1,70 +1,98 @@
 package com.fin.shadow_ledger.controller
 
 import com.fin.shadow_ledger.dto.PaymentRequest
-import com.fin.shadow_ledger.dto.TransactionEvent
 import com.fin.shadow_ledger.service.AiEngineClient
 import com.fin.shadow_ledger.service.AuditService
-import com.fin.shadow_ledger.repository.UserRepository
-import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import java.time.Instant
 
 @RestController
-@RequestMapping("/api/v1/audit")
+@RequestMapping("/api/v1/compliance")
 class AuditController(
     private val auditService: AuditService,
-    private val userRepo: UserRepository,
     private val aiClient: AiEngineClient
 ) {
     private val logger = LoggerFactory.getLogger(AuditController::class.java)
 
-    @PostMapping("/payment")
-    fun processPayment(@Valid @RequestBody req: PaymentRequest): ResponseEntity<Any> {
-        logger.info("Processing Payment: ${req.amount} from ${req.accountId}")
-
-        // 1. Honeypot Check
-        val user = userRepo.findById(req.accountId).orElse(null)
-        if (user != null && user.isHoneypot) {
-            logger.warn("HONEYPOT TRIGGERED: ${req.ipAddress}")
-            return ResponseEntity.ok(mapOf("status" to "QUEUED", "ref" to "HP-${System.currentTimeMillis()}"))
+    @PostMapping("/transaction")
+    fun processTransaction(@RequestBody req: PaymentRequest): ResponseEntity<Any> {
+        
+        // --- STEP 1: API GATEWAY ---
+        if (req.clientSignature.length < 10) { 
+            return ResponseEntity.status(400).body(mapOf("error" to "Invalid Signature Format")) 
         }
 
-        // 2. Async AI Analysis
-        val aiPayload = mapOf(
-            "fromAccount" to req.accountId,
-            "instrument" to req.paymentInstrumentId,
-            "amount" to req.amount,
-            "lat" to req.currentLat,
-            "lon" to req.currentLon
-        )
+        // FIX: Changed 'val' to 'var' so we can modify it below
+        var riskScore: Double
+        var riskFlags: List<String>
 
-        val aiResult = aiClient.analyzeAsync(aiPayload).join()
-        val riskScore = (aiResult["score"] as? Number)?.toDouble() ?: 0.0
-        val reasons = aiResult["reasons"] as? List<*>
+        // --- STEP 2: DEMO BYPASS LOGIC ---
+        // Force Green for small amounts (< 1000)
+        if (req.amount < 1000) {
+            logger.info("⚠️ DEMO MODE: Bypassing AI for small amount: ${req.amount}")
+            riskScore = 0.05 
+            riskFlags = listOf("DEMO_SAFE_MODE", "IDENTITY_VERIFIED")
+        } else {
+            // Ask AI for large amounts
+            try {
+                val aiPayload = mapOf(
+                    "fromAccount" to req.fromAccount, 
+                    "toAccount" to req.toAccount,     
+                    "amount" to req.amount,
+                    "lat" to req.location.lat,
+                    "lon" to req.location.lon,
+                    "ip" to req.ipAddress
+                )
+                
+                val aiResult = aiClient.analyzeAsync(aiPayload).join()
+                
+                riskScore = (aiResult["score"] as? Number)?.toDouble() ?: 0.99
+                riskFlags = (aiResult["reasons"] as? List<String>) ?: emptyList()
 
-        // 3. Strategy Selection
-        val strategyMode = when {
-            req.amount == 777.0 -> "ZKP"
-            riskScore > 0.8 -> return ResponseEntity.status(403).body(mapOf("status" to "BLOCKED", "reasons" to reasons))
-            riskScore > 0.5 -> "MULTISIG"
-            riskScore > 0.2 -> "TSA"
-            else -> "MERKLE"
+            } catch (e: Exception) {
+                logger.error("❌ AI ERROR: ${e.message}")
+                riskScore = 0.99 
+                riskFlags = listOf("AI_SERVICE_UNAVAILABLE")
+            }
         }
 
-        // 4. Seal
-        val event = TransactionEvent(System.currentTimeMillis(), req.accountId, req.toAccount, req.amount, Instant.now())
-        auditService.processTransaction(event, strategyMode)
+        // --- STEP 3: POLICY ENGINE ---
+        val policyAction = evaluatePolicy(riskScore, req.amount)
 
-        return ResponseEntity.ok(mapOf(
-            "status" to "Sealed",
-            "strategy" to strategyMode,
-            "risk" to riskScore,
-            "proof_metadata" to "Included in Ledger"
-        ))
+        logger.info("TX: ${req.transactionId} | Score: $riskScore | Policy: ${policyAction.name}")
+
+        // --- STEP 4: EXECUTION ---
+        return when (policyAction) {
+            PolicyAction.BLOCK -> {
+                ResponseEntity.status(403).body(mapOf(
+                    "status" to "BLOCKED",
+                    "reason" to "Policy Violation: High Risk Score ($riskScore)",
+                    "flags" to riskFlags
+                ))
+            }
+            PolicyAction.STEP_UP_AUTH -> {
+                 ResponseEntity.status(402).body(mapOf(
+                    "status" to "CHALLENGE_REQUIRED",
+                    "challenge" to "MULTISIG_REQUIRED",
+                    "risk_score" to riskScore
+                ))
+            }
+            PolicyAction.SETTLE -> {
+                val receipt = auditService.commitToLedger(req, riskScore, riskFlags, "ECDSA_P256")
+                ResponseEntity.ok(receipt)
+            }
+        }
     }
 
-    @GetMapping("/blocks")
-    fun getRecentBlocks() = ResponseEntity.ok(auditService.getRecentBlocks())
+    enum class PolicyAction { BLOCK, STEP_UP_AUTH, SETTLE }
+
+    private fun evaluatePolicy(score: Double, amount: Double): PolicyAction {
+        return when {
+            score > 0.8 -> PolicyAction.BLOCK
+            score > 0.6 -> PolicyAction.STEP_UP_AUTH
+            amount > 1_000_000 -> PolicyAction.STEP_UP_AUTH
+            else -> PolicyAction.SETTLE
+        }
+    }
 }

@@ -1,27 +1,42 @@
 package com.fin.shadow_ledger.dto
 
-import jakarta.validation.constraints.*
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotNull
 
 data class PaymentRequest(
-    @field:NotBlank(message = "Account ID is required")
-    val accountId: String,
+    @field:NotBlank(message = "Transaction ID is mandatory")
+    val transactionId: String, // UUID
 
-    @field:NotBlank(message = "Instrument ID is required")
-    val paymentInstrumentId: String = "DEFAULT",
+    @field:NotBlank(message = "Sender ID is mandatory")
+    val fromAccount: String,
 
-    @field:NotBlank(message = "Recipient is required")
+    @field:NotBlank(message = "Receiver ID is mandatory")
     val toAccount: String,
 
-    @field:Positive(message = "Amount must be greater than zero")
-    @field:Max(value = 100000000, message = "Amount exceeds transaction limit")
+    @field:Min(value = 1, message = "Amount must be positive")
     val amount: Double,
 
-    @field:DecimalMin("-90.0") @field:DecimalMax("90.0")
-    val currentLat: Double,
+    @field:NotBlank(message = "Currency is mandatory")
+    val currency: String = "INR",
 
-    @field:DecimalMin("-180.0") @field:DecimalMax("180.0")
-    val currentLon: Double,
+    val timestamp: String, // ISO-8601
 
-    @field:NotBlank
-    val ipAddress: String
+    @field:NotBlank(message = "Device ID is mandatory")
+    val deviceId: String,
+
+    // Nested Location Object
+    val location: LocationData,
+
+    @field:NotBlank(message = "IP Address is mandatory")
+    val ipAddress: String,
+
+    // Step 3 Compliance: The Client's Cryptographic Signature
+    @field:NotBlank(message = "Client Signature is mandatory for non-repudiation")
+    val clientSignature: String
+)
+
+data class LocationData(
+    val lat: Double,
+    val lon: Double
 )
